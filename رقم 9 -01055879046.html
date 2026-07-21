@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Tiger Store | الدفع عبر NFC</title>
+<style>
+  :root{
+    --bg-0:#0b0c0e;
+    --bg-1:#16181c;
+    --card:rgba(255,255,255,0.055);
+    --card-border:rgba(255,255,255,0.09);
+    --orange:#ff9800;
+    --orange-2:#ffb74d;
+    --orange-dim:rgba(255,152,0,0.16);
+    --text-hi:#f4f4f5;
+    --text-mid:#a8adb4;
+    --text-low:#6b7075;
+    --error:#ff5c5c;
+    --radius-lg:22px;
+    --radius-md:14px;
+  }
+
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    min-height:100dvh;
+    background:
+      radial-gradient(120% 60% at 50% 0%, rgba(255,152,0,0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 55%);
+    color:var(--text-hi);
+    font-family:-apple-system, "Segoe UI", Roboto, "Noto Sans Arabic", Tahoma, Arial, sans-serif;
+    line-height:1.6;
+    display:flex;
+    justify-content:center;
+    padding:env(safe-area-inset-top) 18px env(safe-area-inset-bottom);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .app{
+    width:100%;
+    max-width:440px;
+    display:flex;
+    flex-direction:column;
+    min-height:100dvh;
+    padding-top:max(28px, env(safe-area-inset-top));
+    padding-bottom:20px;
+  }
+
+  /* ---------- Brand / hero ---------- */
+  .brand{
+    text-align:center;
+    padding-bottom:22px;
+    animation:fade-in .5s ease both;
+  }
+
+  .nfc-mark{
+    position:relative;
+    width:84px; height:84px;
+    margin:0 auto 16px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .nfc-mark .ring{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:1.5px solid var(--orange);
+    opacity:0;
+    animation:pulse-ring 2.6s ease-out infinite;
+  }
+  .nfc-mark .ring.r2{ animation-delay:.7s; }
+  .nfc-mark .ring.r3{ animation-delay:1.4s; }
+  .nfc-mark .core{
+    position:relative;
+    width:56px; height:56px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(155deg, var(--orange-2), var(--orange) 65%);
+    box-shadow:0 6px 24px rgba(255,152,0,0.35);
+    font-weight:700;
+    font-size:18px;
+    letter-spacing:.5px;
+    color:#1a1200;
+  }
+
+  .store-name{
+    margin:0;
+    font-size:clamp(24px, 6.5vw, 30px);
+    font-weight:700;
+    letter-spacing:.2px;
+  }
+  .tagline{
+    margin:8px 0 0;
+    color:var(--text-mid);
+    font-size:15px;
+  }
+
+  /* ---------- Card ---------- */
+  .card{
+    background:var(--card);
+    border:1px solid var(--card-border);
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+    border-radius:var(--radius-lg);
+    padding:26px 20px 22px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.35);
+    animation:slide-up .5s .05s cubic-bezier(.2,.8,.2,1) both;
+  }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px;
+    padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  .amount-field{
+    position:relative;
+    text-align:center;
+    padding:14px 8px 16px;
+    border-bottom:2px solid rgba(255,255,255,0.12);
+    transition:border-color .25s ease;
+  }
+  .amount-field.is-focused{ border-color:var(--orange); }
+  .amount-field.has-error{ border-color:var(--error); }
+
+  #amount{
+    width:100%;
+    direction:ltr;
+    text-align:center;
+    background:transparent;
+    border:0;
+    outline:0;
+    color:var(--text-hi);
+    font-size:clamp(40px, 13vw, 52px);
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+    padding:6px 0;
+  }
+  #amount::placeholder{ color:var(--text-low); }
+
+  .currency-label{
+    display:block;
+    margin-top:2px;
+    color:var(--text-mid);
+    font-size:14px;
+  }
+
+  .error-message{
+    min-height:20px;
+    margin:10px 4px 0;
+    color:var(--error);
+    font-size:13.5px;
+    text-align:center;
+    opacity:0;
+    transform:translateY(-4px);
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  .error-message.show{ opacity:1; transform:translateY(0); }
+
+  .btn-continue{
+    position:relative;
+    width:100%;
+    margin-top:22px;
+    min-height:56px;
+    border:0;
+    border-radius:16px;
+    background:linear-gradient(135deg, var(--orange-2), var(--orange));
+    color:#1a1200;
+    font-size:17px;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 10px 26px rgba(255,152,0,0.28);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .2s ease;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .btn-continue:active{ transform:scale(.97); }
+  .btn-continue:disabled{
+    opacity:.75;
+    cursor:default;
+    box-shadow:none;
+  }
+  .btn-continue:focus-visible{
+    outline:2px solid #fff;
+    outline-offset:3px;
+  }
+
+  .btn-spinner{
+    width:18px; height:18px;
+    border-radius:50%;
+    border:2.5px solid rgba(26,18,0,0.28);
+    border-top-color:#1a1200;
+    display:none;
+    animation:spin .7s linear infinite;
+  }
+  .btn-continue.is-loading .btn-spinner{ display:inline-block; }
+  .btn-continue.is-loading .btn-label{ opacity:.85; }
+
+  /* ---------- Code preview ---------- */
+  .code-preview{
+    margin-top:20px;
+    animation:slide-up .35s ease both;
+  }
+  .code-preview[hidden]{ display:none; }
+
+  .code-preview-label{
+    margin:0 0 8px;
+    font-size:13px;
+    color:var(--text-mid);
+    text-align:center;
+  }
+  .code-box{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:rgba(255,255,255,0.04);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius-md);
+    padding:12px 14px;
+  }
+  #generated-code{
+    flex:1;
+    direction:ltr;
+    text-align:center;
+    font-size:16px;
+    letter-spacing:.5px;
+    color:var(--orange-2);
+    font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    word-break:break-all;
+  }
+  .btn-copy{
+    flex-shrink:0;
+    min-height:40px;
+    min-width:64px;
+    border:1px solid var(--card-border);
+    background:rgba(255,255,255,0.06);
+    color:var(--text-hi);
+    border-radius:10px;
+    font-size:13.5px;
+    cursor:pointer;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .btn-copy:active{ transform:scale(.95); }
+  .btn-copy:focus-visible{ outline:2px solid var(--orange); outline-offset:2px; }
+
+  .code-recipient{
+    margin:9px 4px 0;
+    text-align:center;
+    font-size:13px;
+    color:var(--text-mid);
+  }
+  .code-recipient span{
+    color:var(--text-hi);
+    font-weight:700;
+  }
+
+  .copy-feedback{
+    min-height:16px;
+    margin:8px 0 0;
+    text-align:center;
+    font-size:12.5px;
+    color:var(--orange-2);
+    opacity:0;
+    transition:opacity .2s ease;
+  }
+  .copy-feedback.show{ opacity:1; }
+
+  .footer{
+    margin-top:auto;
+    padding-top:26px;
+    text-align:center;
+    color:var(--text-low);
+    font-size:12px;
+  }
+
+  /* ---------- Promo toast ---------- */
+  .promo-toast{
+    position:fixed;
+    left:50%;
+    bottom:max(18px, env(safe-area-inset-bottom));
+    width:calc(100% - 36px);
+    max-width:400px;
+    z-index:40;
+    background:rgba(20,22,26,0.74);
+    border:1px solid var(--card-border);
+    backdrop-filter:blur(20px);
+    -webkit-backdrop-filter:blur(20px);
+    border-radius:18px;
+    padding:14px 14px 12px;
+    box-shadow:0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,152,0,0.08);
+    opacity:0;
+    transform:translate(-50%, 130%);
+    transition:transform .45s cubic-bezier(.2,.8,.2,1), opacity .35s ease;
+    will-change:transform, opacity;
+  }
+  .promo-toast[hidden]{ display:none; }
+  .promo-toast.is-visible{
+    opacity:1;
+    transform:translate(-50%, 0);
+  }
+
+  .promo-toast-top{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .promo-icon{
+    font-size:21px;
+    line-height:1;
+    flex-shrink:0;
+    margin-top:1px;
+  }
+  .promo-body{ flex:1; min-width:0; }
+  .promo-title{
+    margin:0;
+    font-size:14.5px;
+    font-weight:700;
+    color:var(--text-hi);
+  }
+  .promo-text{
+    margin:4px 0 0;
+    font-size:13px;
+    line-height:1.5;
+    color:var(--text-mid);
+  }
+  .promo-text strong{
+    color:var(--orange-2);
+    font-weight:700;
+  }
+  .promo-domain{
+    margin:5px 0 0;
+    font-size:11.5px;
+    color:var(--text-low);
+    direction:ltr;
+    unicode-bidi:isolate;
+  }
+  .promo-code-box{
+    margin-top:8px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(255,152,0,0.08);
+    border:1px dashed rgba(255,152,0,0.35);
+    border-radius:10px;
+    padding:7px 10px;
+  }
+  .promo-code-label{
+    flex-shrink:0;
+    font-size:11px;
+    color:var(--text-mid);
+  }
+  .promo-code{
+    flex:1;
+    direction:ltr;
+    unicode-bidi:isolate;
+    text-align:center;
+    font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:1px;
+    color:var(--orange-2);
+  }
+  .promo-code-copy{
+    flex-shrink:0;
+    min-height:30px;
+    padding:0 10px;
+    border:1px solid var(--card-border);
+    background:rgba(255,255,255,0.06);
+    color:var(--text-hi);
+    border-radius:8px;
+    font-size:12px;
+    cursor:pointer;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .promo-code-copy:active{ transform:scale(.95); }
+  .promo-code-copy:focus-visible{ outline:2px solid var(--orange); outline-offset:2px; }
+  .promo-close{
+    flex-shrink:0;
+    width:36px; height:36px;
+    border:0;
+    background:rgba(255,255,255,0.06);
+    color:var(--text-mid);
+    font-size:15px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .promo-close:active{ transform:scale(.92); }
+  .promo-close:focus-visible{ outline:2px solid var(--orange); outline-offset:2px; }
+
+  .promo-actions{
+    margin-top:12px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .promo-cta{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-height:44px;
+    padding:0 20px;
+    border-radius:12px;
+    background:linear-gradient(135deg, var(--orange-2), var(--orange));
+    color:#1a1200;
+    font-size:13.5px;
+    font-weight:700;
+    text-decoration:none;
+    box-shadow:0 8px 20px rgba(255,152,0,0.25);
+    transition:transform .12s ease;
+  }
+  .promo-cta:active{ transform:scale(.96); }
+  .promo-cta:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  /* ---------- Recipient confirmation modal ---------- */
+  .confirm-overlay{
+    position:fixed;
+    inset:0;
+    z-index:60;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:rgba(6,7,8,0.6);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+    opacity:0;
+    transition:opacity .25s ease;
+  }
+  .confirm-overlay[hidden]{ display:none; }
+  .confirm-overlay.is-visible{ opacity:1; }
+
+  .confirm-modal{
+    width:100%;
+    max-width:340px;
+    background:rgba(24,26,30,0.94);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius-lg);
+    padding:26px 22px 20px;
+    box-shadow:0 24px 60px rgba(0,0,0,0.5);
+    text-align:center;
+    transform:translateY(16px) scale(.96);
+    transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .confirm-overlay.is-visible .confirm-modal{
+    transform:translateY(0) scale(1);
+  }
+
+  .confirm-question{
+    margin:0 0 22px;
+    font-size:16px;
+    line-height:1.7;
+    color:var(--text-hi);
+  }
+  .confirm-name{
+    display:inline-block;
+    font-size:24px;
+    font-weight:700;
+    color:var(--orange-2);
+  }
+
+  .confirm-actions{
+    display:flex;
+    gap:10px;
+  }
+  .btn-confirm-cancel,
+  .btn-confirm-ok{
+    flex:1;
+    min-height:48px;
+    border-radius:14px;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    border:0;
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .btn-confirm-cancel{
+    background:rgba(255,255,255,0.07);
+    color:var(--text-hi);
+    border:1px solid var(--card-border);
+  }
+  .btn-confirm-cancel:active{ transform:scale(.96); }
+  .btn-confirm-cancel:focus-visible{ outline:2px solid var(--orange); outline-offset:2px; }
+
+  .btn-confirm-ok{
+    background:linear-gradient(135deg, var(--orange-2), var(--orange));
+    color:#1a1200;
+    box-shadow:0 8px 20px rgba(255,152,0,0.28);
+  }
+  .btn-confirm-ok:active{ transform:scale(.96); }
+  .btn-confirm-ok:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+
+  @keyframes fade-in{ from{opacity:0} to{opacity:1} }
+  @keyframes slide-up{ from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:translateY(0)} }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes pulse-ring{
+    0%{ transform:scale(.6); opacity:.55; }
+    100%{ transform:scale(1.55); opacity:0; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:.001ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:.001ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="brand">
+    <div class="nfc-mark" aria-hidden="true">
+      <span class="ring"></span>
+      <span class="ring r2"></span>
+      <span class="ring r3"></span>
+      <span class="core">TS</span>
+      <!-- Store logo will replace the "TS" mark above once supplied -->
+    </div>
+    <h1 class="store-name">Tiger Store</h1>
+    <p class="tagline">أدخل قيمة المبلغ المطلوب</p>
+  </header>
+
+  <main class="card">
+    <form id="payment-form" novalidate>
+      <label for="amount" class="sr-only">المبلغ المطلوب دفعه</label>
+      <div class="amount-field" id="amount-field">
+        <input
+          id="amount"
+          name="amount"
+          type="tel"
+          inputmode="numeric"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="0"
+          aria-describedby="currency-label amount-error"
+          maxlength="6"
+        >
+        <span class="currency-label" id="currency-label">جنيه مصري</span>
+      </div>
+
+      <p class="error-message" id="amount-error" role="alert" aria-live="polite"></p>
+
+      <button type="submit" id="continue-btn" class="btn-continue">
+        <span class="btn-label">متابعة الدفع</span>
+        <span class="btn-spinner" aria-hidden="true"></span>
+      </button>
+    </form>
+
+    <div class="code-preview" id="code-preview" hidden>
+      <p class="code-preview-label">كود الدفع</p>
+      <div class="code-box">
+        <code id="generated-code"></code>
+        <button type="button" id="copy-btn" class="btn-copy">نسخ</button>
+      </div>
+      <p class="code-recipient">باسم: <span id="recipient-name"></span></p>
+      <p class="copy-feedback" id="copy-feedback" aria-live="polite"></p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>Powered by Tiger Store</p>
+  </footer>
+
+</div>
+
+<div class="promo-toast" id="promo-toast" role="status" aria-live="polite" hidden>
+  <div class="promo-toast-top">
+    <span class="promo-icon" aria-hidden="true">🎁</span>
+    <div class="promo-body">
+      <p class="promo-title">🎉 مبروك!</p>
+      <p class="promo-text">لقد حصلت على خصم <strong>10%</strong> على أي منتج من متجرنا الإلكتروني.</p>
+      <div class="promo-code-box">
+        <span class="promo-code-label">كود الخصم</span>
+        <code class="promo-code" id="promo-code"></code>
+        <button type="button" class="promo-code-copy" id="promo-code-copy">نسخ</button>
+      </div>
+      <p class="promo-domain">TigerStore.net</p>
+    </div>
+    <button type="button" class="promo-close" id="promo-close" aria-label="إغلاق الإشعار">✕</button>
+  </div>
+  <div class="promo-actions">
+    <a class="promo-cta" id="promo-cta" href="https://TigerStore.net" target="_blank" rel="noopener noreferrer">تسوق الآن</a>
+  </div>
+</div>
+
+<div class="confirm-overlay" id="confirm-overlay" hidden>
+  <div class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-question">
+    <p class="confirm-question" id="confirm-question">هل رقم المُرسَل إليه هو <span class="confirm-name" id="confirm-recipient-name"></span>؟</p>
+    <div class="confirm-actions">
+      <button type="button" class="btn-confirm-cancel" id="confirm-cancel-btn">إلغاء</button>
+      <button type="button" class="btn-confirm-ok" id="confirm-ok-btn">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- Single source of truth: change these values only ----
+  var STORE_NAME     = "Tiger Store";
+  var PHONE_NUMBER   = "01055879046";
+  var PAYMENT_PREFIX = "*9*7*";
+  var CURRENCY       = "جنيه مصري";
+  var RECIPIENT_NAME = "سمية";
+  var MAX_AMOUNT     = 5000;
+  var STORAGE_KEY    = "tigerStore.lastAmount";
+
+  var PROMO_DISCOUNT_CODE = "vf100";
+  var PROMO_SHOW_DELAY  = 3000; // ms after load
+  var PROMO_VISIBLE_MS  = 7000; // stays visible 6–8s
+  var PROMO_EXIT_MS     = 450;  // must match the CSS transform transition
+  // ------------------------------------------------------------
+
+  var form          = document.getElementById("payment-form");
+  var amountField   = document.getElementById("amount-field");
+  var amountInput   = document.getElementById("amount");
+  var errorEl       = document.getElementById("amount-error");
+  var continueBtn   = document.getElementById("continue-btn");
+  var previewEl     = document.getElementById("code-preview");
+  var codeEl        = document.getElementById("generated-code");
+  var recipientEl   = document.getElementById("recipient-name");
+  var copyBtn       = document.getElementById("copy-btn");
+  var copyFeedback  = document.getElementById("copy-feedback");
+
+  var promoToast    = document.getElementById("promo-toast");
+  var promoClose    = document.getElementById("promo-close");
+  var promoCodeEl   = document.getElementById("promo-code");
+  var promoCodeCopy = document.getElementById("promo-code-copy");
+  var promoAutoHideTimer = null;
+
+  var confirmOverlay       = document.getElementById("confirm-overlay");
+  var confirmRecipientName = document.getElementById("confirm-recipient-name");
+  var confirmOkBtn         = document.getElementById("confirm-ok-btn");
+  var confirmCancelBtn     = document.getElementById("confirm-cancel-btn");
+  var pendingAmount = null;
+  var lastFocusedBeforeModal = null;
+
+  var isSubmitting = false;
+
+  function showError(message){
+    errorEl.textContent = message;
+    errorEl.classList.toggle("show", Boolean(message));
+    amountField.classList.toggle("has-error", Boolean(message));
+  }
+
+  function sanitizeDigits(value){
+    return value.replace(/[^0-9]/g, "");
+  }
+
+  function buildUssdCode(amount){
+    return PAYMENT_PREFIX + PHONE_NUMBER + "*" + amount + "#";
+  }
+
+  function buildTelHref(ussdCode){
+    // The "#" must be percent-encoded for tel: links to work reliably.
+    return "tel:" + ussdCode.replace("#", "%23");
+  }
+
+  function restoreLastAmount(){
+    try{
+      var saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved && /^[0-9]+$/.test(saved)){
+        amountInput.value = saved;
+      }
+    }catch(e){ /* localStorage unavailable — ignore, not critical */ }
+  }
+
+  function persistAmount(amount){
+    try{
+      window.localStorage.setItem(STORAGE_KEY, amount);
+    }catch(e){ /* ignore */ }
+  }
+
+  function resetSubmitState(){
+    isSubmitting = false;
+    continueBtn.disabled = false;
+    continueBtn.classList.remove("is-loading");
+  }
+
+  amountInput.addEventListener("input", function(){
+    var cleaned = sanitizeDigits(amountInput.value);
+    if (cleaned !== amountInput.value){
+      amountInput.value = cleaned;
+    }
+    if (errorEl.textContent){
+      showError("");
+    }
+  });
+
+  amountInput.addEventListener("focus", function(){
+    amountField.classList.add("is-focused");
+  });
+  amountInput.addEventListener("blur", function(){
+    amountField.classList.remove("is-focused");
+  });
+
+  // ---------- Recipient confirmation modal ----------
+
+  function trapModalTab(event){
+    if (event.key === "Escape"){
+      cancelPayment();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    var focusables = [confirmCancelBtn, confirmOkBtn];
+    var currentIndex = focusables.indexOf(document.activeElement);
+    event.preventDefault();
+
+    var nextIndex;
+    if (event.shiftKey){
+      nextIndex = (currentIndex <= 0) ? focusables.length - 1 : currentIndex - 1;
+    } else {
+      nextIndex = (currentIndex === focusables.length - 1) ? 0 : currentIndex + 1;
+    }
+    focusables[nextIndex].focus();
+  }
+
+  function openConfirmModal(amount){
+    if (!confirmOverlay) return;
+    pendingAmount = amount;
+    if (confirmRecipientName){
+      confirmRecipientName.textContent = RECIPIENT_NAME;
+    }
+    lastFocusedBeforeModal = document.activeElement;
+
+    confirmOverlay.hidden = false;
+    void confirmOverlay.offsetWidth; // force reflow so the entrance transition runs
+    confirmOverlay.classList.add("is-visible");
+    confirmOkBtn.focus();
+    document.addEventListener("keydown", trapModalTab);
+  }
+
+  function closeConfirmModal(){
+    if (!confirmOverlay) return;
+    confirmOverlay.classList.remove("is-visible");
+    document.removeEventListener("keydown", trapModalTab);
+    window.setTimeout(function(){
+      confirmOverlay.hidden = true;
+    }, 250);
+    if (lastFocusedBeforeModal && lastFocusedBeforeModal.focus){
+      lastFocusedBeforeModal.focus();
+    }
+  }
+
+  function cancelPayment(){
+    closeConfirmModal();
+    pendingAmount = null;
+    resetSubmitState();
+  }
+
+  function confirmPayment(){
+    var amount = pendingAmount;
+    closeConfirmModal();
+    pendingAmount = null;
+    if (!amount) return;
+    proceedWithPayment(amount);
+  }
+
+  if (confirmOkBtn){
+    confirmOkBtn.addEventListener("click", confirmPayment);
+  }
+  if (confirmCancelBtn){
+    confirmCancelBtn.addEventListener("click", cancelPayment);
+  }
+  if (confirmOverlay){
+    confirmOverlay.addEventListener("click", function(event){
+      if (event.target === confirmOverlay){
+        cancelPayment();
+      }
+    });
+  }
+
+  form.addEventListener("submit", function(event){
+    event.preventDefault();
+
+    if (isSubmitting) return;
+
+    var raw = sanitizeDigits(amountInput.value.trim());
+
+    if (raw === ""){
+      showError("يرجى إدخال المبلغ");
+      amountInput.focus();
+      return;
+    }
+
+    var amount = parseInt(raw, 10);
+
+    if (!amount || amount <= 0){
+      showError("أدخل مبلغاً صحيحاً");
+      amountInput.focus();
+      return;
+    }
+
+    if (amount > MAX_AMOUNT){
+      showError("الحد الأقصى للمبلغ هو " + MAX_AMOUNT.toLocaleString("en-US") + " " + CURRENCY);
+      amountInput.focus();
+      return;
+    }
+
+    showError("");
+    isSubmitting = true;
+    openConfirmModal(amount);
+  });
+
+  function proceedWithPayment(amount){
+    continueBtn.disabled = true;
+    continueBtn.classList.add("is-loading");
+
+    var ussdCode = buildUssdCode(amount);
+    persistAmount(String(amount));
+
+    codeEl.textContent = ussdCode;
+    previewEl.hidden = false;
+
+    window.setTimeout(function(){
+      if (navigator.vibrate){
+        navigator.vibrate(30);
+      }
+      window.location.href = buildTelHref(ussdCode);
+
+      // Re-enable in case the dialer sheet is dismissed and the user returns.
+      window.setTimeout(resetSubmitState, 1200);
+    }, 500);
+  }
+
+  function copyTextToClipboard(text, onSuccess, onError){
+    if (!text) return;
+
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(onSuccess).catch(onError);
+      return;
+    }
+
+    var tempInput = document.createElement("textarea");
+    tempInput.value = text;
+    tempInput.style.position = "fixed";
+    tempInput.style.opacity = "0";
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    try{ document.execCommand("copy"); onSuccess(); }
+    catch(e){ onError(e); }
+    document.body.removeChild(tempInput);
+  }
+
+  copyBtn.addEventListener("click", function(){
+    var text = codeEl.textContent;
+    if (!text) return;
+
+    copyTextToClipboard(text, function(){
+      copyFeedback.textContent = "تم نسخ الكود";
+      copyFeedback.classList.add("show");
+      window.setTimeout(function(){
+        copyFeedback.classList.remove("show");
+      }, 1800);
+    }, function(){
+      copyFeedback.textContent = "تعذر النسخ";
+      copyFeedback.classList.add("show");
+    });
+  });
+
+  // ---------- Promo toast (fully independent of the payment flow) ----------
+
+  function hidePromoToast(){
+    if (!promoToast || promoToast.hidden) return;
+    window.clearTimeout(promoAutoHideTimer);
+    promoToast.classList.remove("is-visible");
+    window.setTimeout(function(){
+      promoToast.hidden = true;
+    }, PROMO_EXIT_MS);
+  }
+
+  function showPromoToast(){
+    if (!promoToast) return;
+    promoToast.hidden = false;
+    void promoToast.offsetWidth; // force reflow so the entrance transition runs
+    promoToast.classList.add("is-visible");
+    promoAutoHideTimer = window.setTimeout(hidePromoToast, PROMO_VISIBLE_MS);
+  }
+
+  function initPromoToast(){
+    if (!promoToast) return;
+
+    window.setTimeout(function(){
+      showPromoToast();
+    }, PROMO_SHOW_DELAY);
+  }
+
+  if (promoCodeEl){
+    promoCodeEl.textContent = PROMO_DISCOUNT_CODE;
+  }
+
+  if (promoCodeCopy){
+    promoCodeCopy.addEventListener("click", function(){
+      var originalLabel = promoCodeCopy.textContent;
+      copyTextToClipboard(PROMO_DISCOUNT_CODE, function(){
+        promoCodeCopy.textContent = "تم النسخ";
+        window.setTimeout(function(){
+          promoCodeCopy.textContent = originalLabel;
+        }, 1500);
+      }, function(){
+        promoCodeCopy.textContent = "تعذر النسخ";
+        window.setTimeout(function(){
+          promoCodeCopy.textContent = originalLabel;
+        }, 1500);
+      });
+    });
+  }
+
+  if (promoClose){
+    promoClose.addEventListener("click", hidePromoToast);
+  }
+
+  initPromoToast();
+
+  if (recipientEl){
+    recipientEl.textContent = RECIPIENT_NAME;
+  }
+
+  restoreLastAmount();
+  amountInput.focus();
+})();
+</script>
+
+</body>
+</html>
